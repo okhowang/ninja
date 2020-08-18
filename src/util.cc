@@ -487,7 +487,16 @@ string StripAnsiEscapeCodes(const string& in) {
 
 int GetProcessorCount() {
 #ifdef _WIN32
-  return GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    DWORD cpuCount = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    JOBOBJECT_CPU_RATE_CONTROL_INFORMATION info;
+    // reference: https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_cpu_rate_control_information
+    if (QueryInformationJobObject(NULL,
+                                  JobObjectCpuRateControlInformation, &info, sizeof(info), NULL)) {
+        if (info.ControlFlags & (JOB_OBJECT_CPU_RATE_CONTROL_ENABLE | JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP)) {
+            return cpuCount * info.CpuRate / 10000;
+        }
+    }
+    return cpuCount;
 #else
   // The number of exposed processors might not represent the actual number of
   // processors threads can run on. This happens when a CPU set limitation is
